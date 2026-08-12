@@ -3,6 +3,7 @@ const express = require("express");
 const pool = require("./db");
 const testRoutes = require("./routes/testRoutes");
 const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 const app = express();
 
@@ -12,6 +13,7 @@ app.use(express.json());
 app.use(cors());
 app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
     res.send("Quiz Management Platform Backend is running!");
