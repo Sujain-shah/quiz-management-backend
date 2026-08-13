@@ -5,7 +5,8 @@ const testRoutes = require("./routes/testRoutes");
 const authRoutes = require("./routes/authRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const quizRoutes = require("./routes/quizRoutes");
-
+const categoryRoutes = require("./routes/categoryRoutes");
+const questionRoutes = require("./routes/questionRoutes");
 const app = express();
 
 const PORT = process.env.PORT || 5000;
@@ -16,6 +17,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/test", testRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/quizzes", quizRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api", questionRoutes);
 
 app.get("/", (req, res) => {
     res.send("Quiz Management Platform Backend is running!");
