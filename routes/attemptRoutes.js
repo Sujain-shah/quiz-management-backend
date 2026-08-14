@@ -6,7 +6,9 @@ const {
     startQuiz,
     submitAnswer,
     getAttempt,
-    submitQuiz
+    submitQuiz,
+    getAttemptResult,
+    getDetailedResult
 } = require("../controllers/attemptController");
 
 const router = express.Router();
@@ -32,4 +34,15 @@ router.post(
     authenticateToken,
     submitQuiz
 );
+router.get(
+    "/attempts/:attemptId/result",
+    authenticateToken,
+    getAttemptResult
+);
+router.get(
+    "/attempts/:attemptId/detailed-result",
+    authenticateToken,
+    getDetailedResult
+);
+
 module.exports = router;

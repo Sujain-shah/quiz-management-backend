@@ -376,11 +376,168 @@ const submitQuiz = async (req, res) => {
         client.release();
     }
 };
+const getAttemptResult = async (req, res) => {
+    try {
+        const { attemptId } = req.params;
+        const userId = req.user.id;
 
+        const attemptResult = await pool.query(
+            `SELECT
+                a.id,
+                a.quiz_id,
+                a.score,
+                a.percentage,
+                a.correct_answers,
+                a.incorrect_answers,
+                a.unanswered,
+                a.time_taken,
+                a.status,
+                a.started_at,
+                a.completed_at,
+                q.title,
+                q.passing_score
+             FROM attempts a
+             JOIN quizzes q ON a.quiz_id = q.id
+             WHERE a.id = $1
+             AND a.user_id = $2`,
+            [attemptId, userId]
+        );
+
+        if (attemptResult.rows.length === 0) {
+            return res.status(404).json({
+                message: "Attempt not found"
+            });
+        }
+
+        const attempt = attemptResult.rows[0];
+
+        if (attempt.status !== "COMPLETED") {
+            return res.status(400).json({
+                message: "Quiz has not been submitted yet"
+            });
+        }
+
+        const passed =
+            Number(attempt.percentage) >= Number(attempt.passing_score);
+
+        res.json({
+            result: {
+                attempt_id: attempt.id,
+                quiz_id: attempt.quiz_id,
+                quiz_title: attempt.title,
+                score: attempt.score,
+                percentage: Number(attempt.percentage),
+                correct_answers: attempt.correct_answers,
+                incorrect_answers: attempt.incorrect_answers,
+                unanswered: attempt.unanswered,
+                time_taken: attempt.time_taken,
+                passing_score: attempt.passing_score,
+                passed,
+                started_at: attempt.started_at,
+                completed_at: attempt.completed_at
+            }
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            message: "Failed to fetch result"
+        });
+    }
+};
+
+const getDetailedResult = async (req, res) => {
+    try {
+        const { attemptId } = req.params;
+        const userId = req.user.id;
+
+        const attemptResult = await pool.query(
+            `SELECT
+                a.id,
+                a.quiz_id,
+                a.status,
+                q.title
+             FROM attempts a
+             JOIN quizzes q ON a.quiz_id = q.id
+             WHERE a.id = $1
+             AND a.user_id = $2`,
+            [attemptId, userId]
+        );
+
+        if (attemptResult.rows.length === 0) {
+            return res.status(404).json({
+                message: "Attempt not found"
+            });
+        }
+
+        const attempt = attemptResult.rows[0];
+
+        if (attempt.status !== "COMPLETED") {
+            return res.status(400).json({
+                message: "Quiz has not been submitted yet"
+            });
+        }
+
+        const result = await pool.query(
+            `SELECT
+                q.id AS question_id,
+                q.question_text,
+                q.explanation,
+                q.marks,
+
+                a.selected_option_id,
+
+                selected.option_text AS selected_answer,
+
+                correct.id AS correct_option_id,
+                correct.option_text AS correct_answer,
+
+                a.is_correct
+
+             FROM questions q
+
+             LEFT JOIN answers a
+                ON q.id = a.question_id
+                AND a.attempt_id = $1
+
+             LEFT JOIN options selected
+                ON selected.id = a.selected_option_id
+
+             LEFT JOIN options correct
+                ON correct.question_id = q.id
+                AND correct.is_correct = true
+
+             WHERE q.quiz_id = $2
+
+             ORDER BY q.id`,
+            [attemptId, attempt.quiz_id]
+        );
+
+        res.json({
+            attempt: {
+                id: attempt.id,
+                quiz_id: attempt.quiz_id,
+                quiz_title: attempt.title,
+                status: attempt.status
+            },
+            questions: result.rows
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            message: "Failed to fetch detailed result"
+        });
+    }
+};
 
 module.exports = {
     startQuiz,
     submitAnswer,
     getAttempt,
-    submitQuiz
+    submitQuiz,
+    getAttemptResult,
+    getDetailedResult
 };
