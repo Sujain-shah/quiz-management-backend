@@ -71,6 +71,73 @@ const getAllQuizzes = async (req, res) => {
         });
     }
 };
+const getPublishedQuizzes = async (req, res) => {
+    try {
+        const result = await pool.query(
+            `SELECT
+                id,
+                title,
+                description,
+                category_id,
+                difficulty,
+                duration,
+                passing_score,
+                max_attempts
+             FROM quizzes
+             WHERE status = 'PUBLISHED'
+             ORDER BY created_at DESC`
+        );
+
+        res.json({
+            quizzes: result.rows
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            message: "Failed to fetch published quizzes"
+        });
+    }
+};
+const getQuizDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await pool.query(
+            `SELECT
+                id,
+                title,
+                description,
+                category_id,
+                difficulty,
+                duration,
+                passing_score,
+                max_attempts,
+                status
+             FROM quizzes
+             WHERE id = $1 AND status = 'PUBLISHED'`,
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                message: "Published quiz not found"
+            });
+        }
+
+        res.json({
+            quiz: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            message: "Failed to fetch quiz details"
+        });
+    }
+};
 
 const updateQuiz = async (req, res) => {
     try {
@@ -197,10 +264,13 @@ const updateQuizStatus = async (req, res) => {
     }
 };
 
+
 module.exports = {
     createQuiz,
     getAllQuizzes,
     updateQuiz,
     deleteQuiz,
-    updateQuizStatus
+    updateQuizStatus,
+    getPublishedQuizzes,
+    getQuizDetails
 };

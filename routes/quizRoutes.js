@@ -8,7 +8,9 @@ const {
     getAllQuizzes,
     updateQuiz,
     deleteQuiz,
-    updateQuizStatus
+    updateQuizStatus,
+    getPublishedQuizzes,
+    getQuizDetails
 } = require("../controllers/quizController");
 
 const router = express.Router();
@@ -19,6 +21,17 @@ router.post(
     adminMiddleware,
     createQuiz
 );
+router.get(
+    "/published",
+    authenticateToken,
+    getPublishedQuizzes
+);
+router.get(
+    "/:id",
+    authenticateToken,
+    getQuizDetails
+);
+
 router.get(
     "/",
     authenticateToken,
