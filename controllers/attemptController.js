@@ -326,6 +326,9 @@ const submitQuiz = async (req, res) => {
             percentage >= Number(attempt.passing_score);
 
         const completedAt = new Date();
+        const timeTaken = Math.floor(
+            (completedAt.getTime() - new Date(attempt.started_at).getTime()) / 1000
+        );
 
         const updateResult = await client.query(
             `UPDATE attempts
@@ -334,9 +337,10 @@ const submitQuiz = async (req, res) => {
                  correct_answers = $3,
                  incorrect_answers = $4,
                  unanswered = $5,
+                 time_taken = $6,
                  status = 'COMPLETED',
-                 completed_at = $6
-             WHERE id = $7
+                 completed_at = $7
+             WHERE id = $8
              RETURNING *`,
             [
                 correctAnswers,
@@ -344,6 +348,7 @@ const submitQuiz = async (req, res) => {
                 correctAnswers,
                 incorrectAnswers,
                 unanswered,
+                timeTaken,
                 completedAt,
                 attemptId
             ]
@@ -447,6 +452,67 @@ const getAttemptResult = async (req, res) => {
     }
 };
 
+const getAttemptQuestions = async (req, res) => {
+    try {
+        const { attemptId } = req.params;
+        const userId = req.user.id;
+
+        const attemptResult = await pool.query(
+            `SELECT id, quiz_id
+             FROM attempts
+             WHERE id = $1
+             AND user_id = $2
+             AND status = 'IN_PROGRESS'`,
+            [attemptId, userId]
+        );
+
+        if (attemptResult.rows.length === 0) {
+            return res.status(404).json({
+                message: "Active attempt not found"
+            });
+        }
+
+        const quizId = attemptResult.rows[0].quiz_id;
+
+        const questionsResult = await pool.query(
+            `SELECT
+                q.id,
+                q.question_text,
+                q.marks,
+                q.explanation,
+                q.difficulty,
+                COALESCE(
+                    json_agg(
+                        json_build_object(
+                            'id', o.id,
+                            'option_text', o.option_text
+                        )
+                        ORDER BY o.id
+                    ) FILTER (WHERE o.id IS NOT NULL),
+                    '[]'
+                ) AS options
+             FROM questions q
+             LEFT JOIN options o
+                ON q.id = o.question_id
+             WHERE q.quiz_id = $1
+             GROUP BY q.id
+             ORDER BY q.id`,
+            [quizId]
+        );
+
+        res.json({
+            questions: questionsResult.rows
+        });
+
+    } catch (error) {
+        console.error(error);
+
+        res.status(500).json({
+            message: "Failed to fetch attempt questions"
+        });
+    }
+};
+
 const getDetailedResult = async (req, res) => {
     try {
         const { attemptId } = req.params;
@@ -539,5 +605,6 @@ module.exports = {
     getAttempt,
     submitQuiz,
     getAttemptResult,
-    getDetailedResult
+    getDetailedResult,
+    getAttemptQuestions
 };

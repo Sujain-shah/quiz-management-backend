@@ -8,7 +8,8 @@ const {
     getAttempt,
     submitQuiz,
     getAttemptResult,
-    getDetailedResult
+    getDetailedResult,
+    getAttemptQuestions
 } = require("../controllers/attemptController");
 
 const router = express.Router();
@@ -39,6 +40,12 @@ router.get(
     authenticateToken,
     getAttemptResult
 );
+router.get(
+    "/attempts/:attemptId/questions",
+    authenticateToken,
+    getAttemptQuestions
+);
+
 router.get(
     "/attempts/:attemptId/detailed-result",
     authenticateToken,
