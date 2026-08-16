@@ -7,7 +7,9 @@ const getDashboardStats = async (req, res) => {
         );
 
         res.json({
-            totalStudents: Number(studentsResult.rows[0].count)
+            totalStudents: Number(
+                studentsResult.rows[0].count
+            )
         });
 
     } catch (error) {
@@ -18,6 +20,8 @@ const getDashboardStats = async (req, res) => {
         });
     }
 };
+
+
 const getAllStudents = async (req, res) => {
     try {
         const search = req.query.search || "";
@@ -46,6 +50,8 @@ const getAllStudents = async (req, res) => {
         });
     }
 };
+
+
 const updateStudentStatus = async (req, res) => {
     try {
         const { id } = req.params;
@@ -85,6 +91,7 @@ const updateStudentStatus = async (req, res) => {
     }
 };
 
+
 const deleteStudent = async (req, res) => {
     try {
         const { id } = req.params;
@@ -116,9 +123,97 @@ const deleteStudent = async (req, res) => {
     }
 };
 
+
+/* =========================
+   ADMIN ANALYTICS
+========================= */
+
+const getAnalytics = async (req, res) => {
+    try {
+        // Overall statistics
+        const overviewResult = await pool.query(
+            `SELECT
+                COUNT(*) AS total_attempts,
+                COALESCE(ROUND(AVG(percentage), 2), 0) AS average_score,
+                COUNT(*) FILTER (
+                    WHERE percentage >= q.passing_score
+                ) AS passed_attempts,
+                COUNT(*) FILTER (
+                    WHERE percentage < q.passing_score
+                ) AS failed_attempts
+             FROM attempts a
+             JOIN quizzes q
+                ON a.quiz_id = q.id
+             WHERE a.status = 'COMPLETED'`
+        );
+
+        // Quiz-wise performance
+        const quizPerformanceResult = await pool.query(
+            `SELECT
+                q.id AS quiz_id,
+                q.title AS quiz_title,
+                COUNT(a.id) AS attempts,
+                COALESCE(
+                    ROUND(AVG(a.percentage), 2),
+                    0
+                ) AS average_score,
+                COUNT(*) FILTER (
+                    WHERE a.percentage >= q.passing_score
+                ) AS passed,
+                COUNT(*) FILTER (
+                    WHERE a.percentage < q.passing_score
+                ) AS failed
+             FROM quizzes q
+             LEFT JOIN attempts a
+                ON a.quiz_id = q.id
+                AND a.status = 'COMPLETED'
+             GROUP BY q.id, q.title
+             ORDER BY attempts DESC, q.title ASC`
+        );
+
+        // Recent attempts
+        const recentAttemptsResult = await pool.query(
+            `SELECT
+                a.id AS attempt_id,
+                q.title AS quiz_title,
+                u.name AS student_name,
+                a.percentage,
+                a.completed_at,
+                CASE
+                    WHEN a.percentage >= q.passing_score
+                    THEN true
+                    ELSE false
+                END AS passed
+             FROM attempts a
+             JOIN quizzes q
+                ON a.quiz_id = q.id
+             JOIN users u
+                ON a.user_id = u.id
+             WHERE a.status = 'COMPLETED'
+             ORDER BY a.completed_at DESC
+             LIMIT 10`
+        );
+
+        res.json({
+            overview: overviewResult.rows[0],
+            quizPerformance: quizPerformanceResult.rows,
+            recentAttempts: recentAttemptsResult.rows
+        });
+
+    } catch (error) {
+        console.error("Admin analytics error:", error);
+
+        res.status(500).json({
+            message: "Failed to fetch analytics"
+        });
+    }
+};
+
+
 module.exports = {
     getDashboardStats,
     getAllStudents,
     updateStudentStatus,
-    deleteStudent
+    deleteStudent,
+    getAnalytics
 };

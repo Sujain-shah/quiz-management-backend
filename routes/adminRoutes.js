@@ -7,7 +7,8 @@ const {
     getDashboardStats,
     getAllStudents,
     updateStudentStatus,
-    deleteStudent
+    deleteStudent,
+    getAnalytics
 } = require("../controllers/adminController");
 
 const router = express.Router();
@@ -25,6 +26,7 @@ router.get(
     adminMiddleware,
     getAllStudents
 );
+
 router.patch(
     "/users/:id/status",
     authenticateToken,
@@ -38,4 +40,12 @@ router.delete(
     adminMiddleware,
     deleteStudent
 );
+
+router.get(
+    "/analytics",
+    authenticateToken,
+    adminMiddleware,
+    getAnalytics
+);
+
 module.exports = router;
