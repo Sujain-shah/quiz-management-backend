@@ -3,35 +3,67 @@ const pool = require("../db");
 const getLeaderboard = async (req, res) => {
     try {
         const result = await pool.query(
-            `SELECT
-                u.id AS user_id,
-                u.name,
-                COUNT(a.id)::int AS quizzes_attempted,
-                COALESCE(SUM(a.score), 0) AS total_score,
-                COALESCE(
-                    ROUND(AVG(a.percentage), 2),
-                    0
-                ) AS average_percentage,
-                COALESCE(
-                    MAX(a.percentage),
-                    0
-                ) AS highest_percentage
-             FROM users u
-             JOIN attempts a
-                ON u.id = a.user_id
-             WHERE u.role = 'STUDENT'
-             AND a.status = 'COMPLETED'
-             GROUP BY u.id, u.name
-             ORDER BY
-                average_percentage DESC,
-                total_score DESC,
-                quizzes_attempted DESC,
-                u.name ASC`
+            `WITH leaderboard_data AS (
+                SELECT
+                    u.id AS user_id,
+                    u.name,
+
+                    COUNT(a.id)::int AS quizzes_attempted,
+
+                    COALESCE(
+                        SUM(a.score),
+                        0
+                    ) AS total_score,
+
+                    COALESCE(
+                        ROUND(AVG(a.percentage), 2),
+                        0
+                    ) AS average_percentage,
+
+                    COALESCE(
+                        ROUND(AVG(a.time_taken), 2),
+                        0
+                    ) AS average_time,
+
+                    COALESCE(
+                        MAX(a.percentage),
+                        0
+                    ) AS highest_percentage
+
+                FROM users u
+
+                JOIN attempts a
+                    ON u.id = a.user_id
+
+                JOIN quizzes q
+                    ON a.quiz_id = q.id
+
+                WHERE u.role = 'STUDENT'
+                AND a.status = 'COMPLETED'
+
+                GROUP BY
+                    u.id,
+                    u.name
+            )
+
+            SELECT
+                *,
+                RANK() OVER (
+                    ORDER BY
+                        average_percentage DESC,
+                        average_time ASC
+                ) AS rank
+
+            FROM leaderboard_data
+
+            ORDER BY
+                rank ASC,
+                name ASC`
         );
 
         const leaderboard = result.rows.map(
-            (student, index) => ({
-                rank: index + 1,
+            (student) => ({
+                rank: Number(student.rank),
                 user_id: student.user_id,
                 name: student.name,
                 quizzes_attempted:
@@ -40,6 +72,8 @@ const getLeaderboard = async (req, res) => {
                     Number(student.total_score),
                 average_percentage:
                     Number(student.average_percentage),
+                average_time:
+                    Number(student.average_time),
                 highest_percentage:
                     Number(student.highest_percentage)
             })
