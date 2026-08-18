@@ -2,18 +2,81 @@ const pool = require("../db");
 
 const getDashboardStats = async (req, res) => {
     try {
-        const studentsResult = await pool.query(
-            "SELECT COUNT(*) FROM users WHERE role = 'STUDENT'"
+        const result = await pool.query(
+            `SELECT
+                (
+                    SELECT COUNT(*)
+                    FROM users
+                    WHERE role = 'STUDENT'
+                ) AS total_students,
+
+                (
+                    SELECT COUNT(*)
+                    FROM quizzes
+                ) AS total_quizzes,
+
+                (
+                    SELECT COUNT(*)
+                    FROM quizzes
+                    WHERE status = 'PUBLISHED'
+                ) AS published_quizzes,
+
+                (
+                    SELECT COUNT(*)
+                    FROM quizzes
+                    WHERE status = 'DRAFT'
+                ) AS draft_quizzes,
+
+                (
+                    SELECT COUNT(*)
+                    FROM questions
+                ) AS total_questions,
+
+                (
+                    SELECT COUNT(*)
+                    FROM attempts
+                    WHERE status = 'COMPLETED'
+                ) AS total_attempts,
+
+                (
+                    SELECT COUNT(*)
+                    FROM attempts a
+                    JOIN quizzes q
+                        ON a.quiz_id = q.id
+                    WHERE a.status = 'COMPLETED'
+                    AND a.percentage >= q.passing_score
+                ) AS total_passed,
+
+                (
+                    SELECT COUNT(*)
+                    FROM attempts a
+                    JOIN quizzes q
+                        ON a.quiz_id = q.id
+                    WHERE a.status = 'COMPLETED'
+                    AND a.percentage < q.passing_score
+                ) AS total_failed`
         );
 
+        const stats = result.rows[0];
+
         res.json({
-            totalStudents: Number(
-                studentsResult.rows[0].count
-            )
+            stats: {
+                total_students: Number(stats.total_students),
+                total_quizzes: Number(stats.total_quizzes),
+                published_quizzes: Number(stats.published_quizzes),
+                draft_quizzes: Number(stats.draft_quizzes),
+                total_questions: Number(stats.total_questions),
+                total_attempts: Number(stats.total_attempts),
+                total_passed: Number(stats.total_passed),
+                total_failed: Number(stats.total_failed)
+            }
         });
 
     } catch (error) {
-        console.error(error);
+        console.error(
+            "Dashboard stats error:",
+            error
+        );
 
         res.status(500).json({
             message: "Failed to fetch dashboard statistics"
