@@ -39,7 +39,7 @@ app.get("/api/health", async (req, res) => {
             databaseTime: result.rows[0].now
         });
     } catch (error) {
-        console.error(error);
+        console.error("DATABASE ERROR:", error);
 
         res.status(500).json({
             status: "error",
